@@ -125,5 +125,254 @@
 
   <!-- TELA 3: PAINEL ADMINISTRATIVO -->
   <div id="view-admin" class="hidden max-w-3xl mx-auto pb-16">
-    <header class="bg-white border-b border-
-      
+    <header class="bg-white border-b border-slate-200 px-4 py-3.5 flex items-center justify-between sticky top-0 z-10">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-700 text-white flex items-center justify-center font-bold">CI</div>
+        <div>
+          <h1 class="font-bold text-slate-900 leading-tight">CASA INVERNO</h1>
+          <p class="text-[11px] text-slate-500 uppercase tracking-wider">Gestão Técnica</p>
+        </div>
+      </div>
+      <button onclick="fazerLogout()" class="text-sm font-medium text-slate-600 hover:text-red-600 px-3 py-1.5 rounded-lg border border-slate-200">
+        Sair
+      </button>
+    </header>
+
+    <nav class="flex gap-2 p-4 overflow-x-auto">
+      <button onclick="mudarAba('equipamentos')" id="tab-equipamentos" class="px-4 py-2 rounded-xl text-sm font-semibold bg-blue-700 text-white">
+        Equipamentos
+      </button>
+      <button onclick="mudarAba('clientes')" id="tab-clientes" class="px-4 py-2 rounded-xl text-sm font-semibold bg-white text-slate-700 border border-slate-200">
+        Clientes
+      </button>
+      <button onclick="mudarAba('novo-cliente')" id="tab-novo-cliente" class="px-4 py-2 rounded-xl text-sm font-semibold bg-white text-slate-700 border border-slate-200">
+        + Cliente
+      </button>
+      <button onclick="mudarAba('novo-equipamento')" id="tab-novo-equipamento" class="px-4 py-2 rounded-xl text-sm font-semibold bg-white text-slate-700 border border-slate-200">
+        + Equipamento
+      </button>
+    </nav>
+
+    <main class="px-4 space-y-5">
+      <div class="grid grid-cols-3 gap-3">
+        <div class="bg-white p-3.5 rounded-2xl border border-slate-200">
+          <p class="text-xs text-slate-500">Equipamentos</p>
+          <p id="stat-eq" class="text-2xl font-bold text-slate-900 mt-1">0</p>
+        </div>
+        <div class="bg-white p-3.5 rounded-2xl border border-slate-200">
+          <p class="text-xs text-slate-500">Clientes</p>
+          <p id="stat-cli" class="text-2xl font-bold text-slate-900 mt-1">0</p>
+        </div>
+        <div class="bg-white p-3.5 rounded-2xl border border-slate-200">
+          <p class="text-xs text-slate-500">Atendimentos</p>
+          <p id="stat-at" class="text-2xl font-bold text-slate-900 mt-1">0</p>
+        </div>
+      </div>
+
+      <section id="sec-equipamentos" class="space-y-4">
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 space-y-3">
+          <div class="flex items-center justify-between">
+            <h2 class="font-bold text-slate-900">Seus equipamentos</h2>
+            <span id="badge-total-eq" class="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">0 registros</span>
+          </div>
+          <input type="text" id="busca-eq" oninput="renderizarEquipamentos()" placeholder="Buscar por cliente, marca ou código CI-..."
+            class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600" />
+          <div id="lista-equipamentos" class="space-y-2.5"></div>
+        </div>
+
+        <div id="ficha-equipamento" class="hidden bg-white p-5 rounded-2xl border border-slate-200 space-y-5">
+          <div class="flex items-start justify-between">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Ficha do Equipamento</span>
+              <h3 id="ficha-titulo" class="text-xl font-bold text-slate-900"></h3>
+              <p id="ficha-codigo" class="text-sm font-mono text-blue-700 font-semibold"></p>
+            </div>
+            <span class="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">Ativo</span>
+          </div>
+
+          <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-center gap-4">
+            <div id="qrcode-container" class="bg-white p-2 rounded-lg border border-slate-200"></div>
+            <div class="text-center sm:text-left space-y-2 flex-1">
+              <p class="font-bold text-slate-900 text-sm">QR Code Individual</p>
+              <p class="text-xs text-slate-500">Qualquer celular que escanear abrirá a ficha técnica e o histórico de serviços sem precisar de senha.</p>
+              <div class="flex flex-wrap gap-2 justify-center sm:justify-start pt-1">
+                <button onclick="abrirModalEtiqueta()" class="bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold px-3.5 py-2 rounded-lg">
+                  Imprimir etiqueta
+                </button>
+                <a id="link-teste-qr" target="_blank" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-semibold px-3.5 py-2 rounded-lg">
+                  Testar link público
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-4 text-sm">
+            <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5">
+              <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Dados do Cliente</p>
+              <p><span class="text-slate-500">Cliente:</span> <strong id="ficha-cliente"></strong></p>
+              <p><span class="text-slate-500">Telefone:</span> <span id="ficha-telefone"></span></p>
+              <p><span class="text-slate-500">Endereço:</span> <span id="ficha-endereco"></span></p>
+              <p><span class="text-slate-500">Local:</span> <span id="ficha-local"></span></p>
+            </div>
+            <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5">
+              <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Dados Técnicos</p>
+              <p><span class="text-slate-500">Marca/Modelo:</span> <strong id="ficha-marca-modelo"></strong></p>
+              <p><span class="text-slate-500">Capacidade:</span> <span id="ficha-capacidade"></span></p>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Histórico de Atendimentos</h4>
+              <button onclick="toggleFormAtendimento()" class="text-xs font-bold text-blue-700 hover:underline">+ Registrar</button>
+            </div>
+
+            <form id="form-atendimento" class="hidden bg-blue-50/70 p-4 rounded-xl border border-blue-200 space-y-3">
+              <p class="font-bold text-sm text-blue-900">Novo Atendimento</p>
+              <div class="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-slate-700 mb-1">Tipo de Serviço *</label>
+                  <select id="at-tipo" required class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm">
+                    <option value="Instalação">Instalação</option>
+                    <option value="Higienização Completa">Higienização Completa</option>
+                    <option value="Manutenção Preventiva">Manutenção Preventiva</option>
+                    <option value="Manutenção Corretiva">Manutenção Corretiva</option>
+                    <option value="Recarga de Gás">Recarga de Gás</option>
+                    <option value="Desinstalação">Desinstalação</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-700 mb-1">Data do Serviço *</label>
+                  <input type="date" id="at-data" required class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm" />
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-700 mb-1">Observações técnicas (opcional)</label>
+                <input type="text" id="at-desc" placeholder="Ex.: Limpeza com vapor + bactericida, pressão OK"
+                  class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm" />
+              </div>
+              <div class="flex gap-2">
+                <button type="submit" class="bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg">Salvar Atendimento</button>
+                <button type="button" onclick="toggleFormAtendimento()" class="bg-white text-slate-600 text-sm px-3 py-2 rounded-lg border border-slate-300">Cancelar</button>
+              </div>
+            </form>
+
+            <div id="ficha-historico" class="space-y-2"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="sec-clientes" class="hidden bg-white p-4 rounded-2xl border border-slate-200 space-y-3">
+        <h2 class="font-bold text-slate-900">Clientes Cadastrados</h2>
+        <div id="lista-clientes" class="space-y-2"></div>
+      </section>
+
+      <section id="sec-novo-cliente" class="hidden bg-white p-5 rounded-2xl border border-slate-200">
+        <h2 class="font-bold text-slate-900 mb-4">Cadastrar Novo Cliente</h2>
+        <form id="form-cliente" class="space-y-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Nome completo *</label>
+            <input type="text" id="cli-nome" required placeholder="Ex.: João Silva"
+              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Telefone / WhatsApp</label>
+            <input type="text" id="cli-tel" placeholder="Ex.: (16) 99999-9999"
+              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Endereço completo</label>
+            <input type="text" id="cli-end" placeholder="Ex.: Rua 7, 235 - Buritizal/SP"
+              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm" />
+          </div>
+          <button type="submit" class="w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold py-2.5 rounded-xl text-sm">
+            Salvar Cliente
+          </button>
+        </form>
+      </section>
+
+      <section id="sec-novo-equipamento" class="hidden bg-white p-5 rounded-2xl border border-slate-200">
+        <h2 class="font-bold text-slate-900 mb-4">Cadastrar Novo Equipamento</h2>
+        <form id="form-equipamento" class="space-y-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Cliente *</label>
+            <select id="eq-cliente" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-sm"></select>
+          </div>
+          <div class="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-700 mb-1">Marca *</label>
+              <input type="text" id="eq-marca" required placeholder="Ex.: Elgin, Daikin, LG"
+                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-700 mb-1">Capacidade (BTUs) *</label>
+              <input type="text" id="eq-cap" required placeholder="Ex.: 9.000 BTU"
+                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm" />
+            </div>
+          </div>
+          <div class="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-700 mb-1">Modelo (opcional)</label>
+              <input type="text" id="eq-modelo" placeholder="Ex.: Eco Inverter II"
+                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-700 mb-1">Ambiente / Local</label>
+              <input type="text" id="eq-local" placeholder="Ex.: Quarto, Sala, Escritório"
+                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm" />
+            </div>
+          </div>
+          <button type="submit" class="w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold py-2.5 rounded-xl text-sm">
+            Cadastrar Equipamento e Gerar QR Code
+          </button>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <div id="modal-etiqueta" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl p-6 max-w-sm w-full space-y-4">
+      <div id="area-etiqueta">
+        <div class="border-2 border-slate-300 rounded-2xl p-5 text-center bg-white w-64 mx-auto">
+          <p class="font-extrabold text-base tracking-wide text-slate-900">CASA INVERNO</p>
+          <p class="text-[10px] tracking-widest uppercase text-slate-500 mb-3">Identificação Técnica</p>
+          <div id="etiqueta-qr" class="flex justify-center my-2"></div>
+          <p id="etiqueta-marca" class="font-bold text-slate-900 mt-3"></p>
+          <p id="etiqueta-sub" class="text-xs text-slate-600 font-mono mt-0.5"></p>
+          <p class="text-[11px] text-slate-400 mt-2">Escaneie para consultar a ficha técnica</p>
+        </div>
+      </div>
+      <div class="flex gap-2 no-print">
+        <button onclick="window.print()" class="flex-1 bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-sm">
+          Imprimir / Salvar PDF
+        </button>
+        <button onclick="fecharModalEtiqueta()" class="px-4 py-2.5 rounded-xl border border-slate-300 text-sm font-medium">
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let clientes = [];
+    let equipamentos = [];
+    let atendimentos = [];
+    let eqSelecionado = null;
+
+    function formatarData(dataStr) {
+      if (!dataStr) return "-";
+      const [ano, mes, dia] = dataStr.split("-");
+      return `${dia}/${mes}/${ano}`;
+    }
+
+    function gerarCodigoUnico() {
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      let code = "CI-";
+      for (let i = 0; i < 7; i++) code += chars[Math.floor(Math.random() * chars.length)];
+      return code;
+    }
+
+    function urlPublicaEquipamento(codigo) {
+      const base = window.location.origin +
