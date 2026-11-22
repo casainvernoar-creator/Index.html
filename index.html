@@ -28,8 +28,8 @@
 
   <!-- CONFIGURAÇÃO DO SUPABASE -->
   <script>
-    const SUPABASE_URL = "https://uvglmlepdeezmihqcgdp.supabase.co";
-    const SUPABASE_ANON_KEY = "Sb_publishable_Zyk8NKPI8sshm7RFYPWdgA_tEvp_nOU";
+    const SUPABASE_URL = "https://kmicwpfvrmjfkzcbiprz.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_Ep8kayw0A7ni5V5ruUbn0w_35EhTy3F";
   </script>
 
   <!-- TELA 1: VISÃO PÚBLICA DO QR CODE (ABRE SEM LOGIN) -->
@@ -375,4 +375,325 @@
     }
 
     function urlPublicaEquipamento(codigo) {
-      const base = window.location.origin +
+      const base = window.location.origin + window.location.pathname;
+      return `${base}?eq=${encodeURIComponent(codigo)}`;
+    }
+
+    async function iniciar() {
+      const params = new URLSearchParams(window.location.search);
+      const codigoQR = params.get("eq");
+
+      if (codigoQR) {
+        document.getElementById("view-publica").classList.remove("hidden");
+        await carregarFichaPublica(codigoQR);
+        return;
+      }
+
+      const { data: { session } } = await sb.auth.getSession();
+      if (session) {
+        mostrarPainelAdmin();
+      } else {
+        document.getElementById("view-login").classList.remove("hidden");
+      }
+    }
+
+    async function carregarFichaPublica(codigo) {
+      const { data: eq, error } = await sb
+        .from("equipamentos")
+        .select("*")
+        .eq("codigo", codigo)
+        .single();
+
+      document.getElementById("publica-loading").classList.add("hidden");
+
+      if (error || !eq) {
+        document.getElementById("publica-erro").classList.remove("hidden");
+        return;
+      }
+
+      const { data: listaAt } = await sb
+        .from("atendimentos")
+        .select("*")
+        .eq("equipamento_id", eq.id)
+        .order("data_servico", { ascending: false });
+
+      document.getElementById("publica-conteudo").classList.remove("hidden");
+      document.getElementById("pub-marca-btu").textContent = `${eq.marca} ${eq.capacidade || ""}`;
+      document.getElementById("pub-codigo").textContent = eq.codigo;
+      document.getElementById("pub-modelo").textContent = eq.modelo || "Não informado";
+      document.getElementById("pub-local").textContent = eq.local_instalacao || "Não informado";
+
+      const histEl = document.getElementById("pub-historico");
+      if (listaAt && listaAt.length > 0) {
+        const ultimo = listaAt[0];
+        document.getElementById("pub-ultimo-servico").textContent = ultimo.tipo_servico;
+        document.getElementById("pub-ultima-data").textContent = `Realizado em: ${formatarData(ultimo.data_servico)}`;
+        document.getElementById("pub-ultima-desc").textContent = ultimo.descricao || "";
+
+        histEl.innerHTML = listaAt.map(a => `
+          <div class="p-3 rounded-xl border border-slate-200 bg-white">
+            <div class="flex justify-between items-center">
+              <span class="font-semibold text-sm text-slate-800">${a.tipo_servico}</span>
+              <span class="text-xs font-medium text-slate-500">${formatarData(a.data_servico)}</span>
+            </div>
+            ${a.descricao ? `<p class="text-xs text-slate-500 mt-1">${a.descricao}</p>` : ""}
+          </div>
+        `).join("");
+      } else {
+        histEl.innerHTML = `<p class="text-sm text-slate-500">Nenhum atendimento registrado ainda.</p>`;
+      }
+    }
+
+    document.getElementById("form-login").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("login-email").value;
+      const password = document.getElementById("login-senha").value;
+      const erroEl = document.getElementById("login-erro");
+      erroEl.classList.add("hidden");
+
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) {
+        erroEl.textContent = "E-mail ou senha inválidos.";
+        erroEl.classList.remove("hidden");
+      } else {
+        document.getElementById("view-login").classList.add("hidden");
+        mostrarPainelAdmin();
+      }
+    });
+
+    async function fazerLogout() {
+      await sb.auth.signOut();
+      location.reload();
+    }
+
+    async function mostrarPainelAdmin() {
+      document.getElementById("view-admin").classList.remove("hidden");
+      document.getElementById("at-data").valueAsDate = new Date();
+      await carregarDados();
+    }
+
+    async function carregarDados() {
+      const [resCli, resEq, resAt] = await Promise.all([
+        sb.from("clientes").select("*").order("nome"),
+        sb.from("equipamentos").select("*").order("created_at", { ascending: false }),
+        sb.from("atendimentos").select("*").order("data_servico", { ascending: false })
+      ]);
+
+      clientes = resCli.data || [];
+      equipamentos = resEq.data || [];
+      atendimentos = resAt.data || [];
+
+      document.getElementById("stat-cli").textContent = clientes.length;
+      document.getElementById("stat-eq").textContent = equipamentos.length;
+      document.getElementById("stat-at").textContent = atendimentos.length;
+      document.getElementById("badge-total-eq").textContent = `${equipamentos.length} registros`;
+
+      atualizarSelectClientes();
+      renderizarClientes();
+      renderizarEquipamentos();
+
+      if (eqSelecionado) {
+        const atualizado = equipamentos.find(e => e.id === eqSelecionado.id);
+        if (atualizado) selecionarEquipamento(atualizado.id);
+      }
+    }
+
+    function mudarAba(aba) {
+      ["equipamentos", "clientes", "novo-cliente", "novo-equipamento"].forEach(nome => {
+        document.getElementById(`sec-${nome}`).classList.toggle("hidden", nome !== aba);
+        const btn = document.getElementById(`tab-${nome}`);
+        if (nome === aba) {
+          btn.className = "px-4 py-2 rounded-xl text-sm font-semibold bg-blue-700 text-white whitespace-nowrap";
+        } else {
+          btn.className = "px-4 py-2 rounded-xl text-sm font-semibold bg-white text-slate-700 border border-slate-200 whitespace-nowrap";
+        }
+      });
+    }
+
+    function atualizarSelectClientes() {
+      const sel = document.getElementById("eq-cliente");
+      if (clientes.length === 0) {
+        sel.innerHTML = `<option value="">Cadastre um cliente primeiro</option>`;
+        return;
+      }
+      sel.innerHTML = clientes.map(c => `<option value="${c.id}">${c.nome}</option>`).join("");
+    }
+
+    function renderizarClientes() {
+      const el = document.getElementById("lista-clientes");
+      if (clientes.length === 0) {
+        el.innerHTML = `<p class="text-sm text-slate-500">Nenhum cliente cadastrado.</p>`;
+        return;
+      }
+      el.innerHTML = clientes.map(c => `
+        <div class="p-3.5 rounded-xl border border-slate-200 flex justify-between items-center">
+          <div>
+            <p class="font-bold text-slate-900 text-sm">${c.nome}</p>
+            <p class="text-xs text-slate-500">${c.telefone || "Sem telefone"} • ${c.endereco || "Sem endereço"}</p>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderizarEquipamentos() {
+      const termo = document.getElementById("busca-eq").value.toLowerCase();
+      const el = document.getElementById("lista-equipamentos");
+
+      const filtrados = equipamentos.filter(eq => {
+        const cli = clientes.find(c => c.id === eq.cliente_id);
+        const nomeCli = cli ? cli.nome.toLowerCase() : "";
+        return (
+          eq.codigo.toLowerCase().includes(termo) ||
+          eq.marca.toLowerCase().includes(termo) ||
+          nomeCli.includes(termo)
+        );
+      });
+
+      if (filtrados.length === 0) {
+        el.innerHTML = `<p class="text-sm text-slate-500 py-2">Nenhum equipamento encontrado.</p>`;
+        return;
+      }
+
+      el.innerHTML = filtrados.map(eq => {
+        const cli = clientes.find(c => c.id === eq.cliente_id);
+        const selecionado = eqSelecionado && eqSelecionado.id === eq.id;
+        return `
+          <div onclick="selecionarEquipamento('${eq.id}')"
+            class="cursor-pointer p-3.5 rounded-xl border transition ${selecionado ? "bg-blue-50 border-blue-400" : "bg-slate-50 border-slate-200 hover:border-blue-300"} flex items-center justify-between">
+            <div>
+              <p class="font-bold text-sm text-slate-900">${cli ? cli.nome : "Cliente"}</p>
+              <p class="text-xs text-slate-500">${eq.codigo} • ${eq.local_instalacao || "Local não informado"}</p>
+            </div>
+            <div class="text-right">
+              <p class="font-bold text-sm text-slate-800">${eq.marca}</p>
+              <p class="text-xs text-slate-500">${eq.capacidade || ""}</p>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function selecionarEquipamento(id) {
+      eqSelecionado = equipamentos.find(e => e.id === id);
+      if (!eqSelecionado) return;
+
+      renderizarEquipamentos();
+      const cli = clientes.find(c => c.id === eqSelecionado.cliente_id);
+      const hist = atendimentos.filter(a => a.equipamento_id === eqSelecionado.id);
+
+      document.getElementById("ficha-equipamento").classList.remove("hidden");
+      document.getElementById("ficha-titulo").textContent = `${eqSelecionado.marca} ${eqSelecionado.capacidade || ""}`;
+      document.getElementById("ficha-codigo").textContent = eqSelecionado.codigo;
+      document.getElementById("ficha-cliente").textContent = cli ? cli.nome : "-";
+      document.getElementById("ficha-telefone").textContent = cli?.telefone || "-";
+      document.getElementById("ficha-endereco").textContent = cli?.endereco || "-";
+      document.getElementById("ficha-local").textContent = eqSelecionado.local_instalacao || "-";
+      document.getElementById("ficha-marca-modelo").textContent = `${eqSelecionado.marca} / ${eqSelecionado.modelo || "-"}`;
+      document.getElementById("ficha-capacidade").textContent = eqSelecionado.capacidade || "-";
+
+      const linkPublico = urlPublicaEquipamento(eqSelecionado.codigo);
+      document.getElementById("link-teste-qr").href = linkPublico;
+
+      const qrDiv = document.getElementById("qrcode-container");
+      qrDiv.innerHTML = "";
+      new QRCode(qrDiv, { text: linkPublico, width: 110, height: 110 });
+
+      const histEl = document.getElementById("ficha-historico");
+      if (hist.length === 0) {
+        histEl.innerHTML = `<p class="text-sm text-slate-500">Nenhum atendimento registrado.</p>`;
+      } else {
+        histEl.innerHTML = hist.map(a => `
+          <div class="p-3 rounded-xl border border-slate-200 flex justify-between items-start">
+            <div>
+              <p class="font-bold text-sm text-slate-800">${a.tipo_servico}</p>
+              <p class="text-xs text-slate-500">${formatarData(a.data_servico)}</p>
+              ${a.descricao ? `<p class="text-xs text-slate-600 mt-1">${a.descricao}</p>` : ""}
+            </div>
+          </div>
+        `).join("");
+      }
+    }
+
+    function toggleFormAtendimento() {
+      document.getElementById("form-atendimento").classList.toggle("hidden");
+    }
+
+    document.getElementById("form-cliente").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const nome = document.getElementById("cli-nome").value;
+      const telefone = document.getElementById("cli-tel").value;
+      const endereco = document.getElementById("cli-end").value;
+
+      const { error } = await sb.from("clientes").insert([{ nome, telefone, endereco }]);
+      if (error) return alert("Erro ao salvar cliente: " + error.message);
+
+      e.target.reset();
+      await carregarDados();
+      mudarAba("novo-equipamento");
+    });
+
+    document.getElementById("form-equipamento").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const cliente_id = document.getElementById("eq-cliente").value;
+      if (!cliente_id) return alert("Cadastre um cliente primeiro.");
+
+      const novoEq = {
+        codigo: gerarCodigoUnico(),
+        cliente_id,
+        marca: document.getElementById("eq-marca").value,
+        capacidade: document.getElementById("eq-cap").value,
+        modelo: document.getElementById("eq-modelo").value,
+        local_instalacao: document.getElementById("eq-local").value
+      };
+
+      const { data, error } = await sb.from("equipamentos").insert([novoEq]).select().single();
+      if (error) return alert("Erro ao cadastrar equipamento: " + error.message);
+
+      e.target.reset();
+      await carregarDados();
+      mudarAba("equipamentos");
+      if (data) selecionarEquipamento(data.id);
+    });
+
+    document.getElementById("form-atendimento").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!eqSelecionado) return;
+
+      const novoAt = {
+        equipamento_id: eqSelecionado.id,
+        tipo_servico: document.getElementById("at-tipo").value,
+        data_servico: document.getElementById("at-data").value,
+        descricao: document.getElementById("at-desc").value
+      };
+
+      const { error } = await sb.from("atendimentos").insert([novoAt]);
+      if (error) return alert("Erro ao registrar atendimento: " + error.message);
+
+      document.getElementById("at-desc").value = "";
+      toggleFormAtendimento();
+      await carregarDados();
+    });
+
+    function abrirModalEtiqueta() {
+      if (!eqSelecionado) return;
+      document.getElementById("modal-etiqueta").classList.remove("hidden");
+      document.getElementById("etiqueta-marca").textContent = eqSelecionado.marca;
+      document.getElementById("etiqueta-sub").textContent = `${eqSelecionado.capacidade || ""} • ${eqSelecionado.codigo}`;
+
+      const qrEl = document.getElementById("etiqueta-qr");
+      qrEl.innerHTML = "";
+      new QRCode(qrEl, {
+        text: urlPublicaEquipamento(eqSelecionado.codigo),
+        width: 140,
+        height: 140
+      });
+    }
+
+    function fecharModalEtiqueta() {
+      document.getElementById("modal-etiqueta").classList.add("hidden");
+    }
+
+    iniciar();
+  </script>
+</body>
+</html>
